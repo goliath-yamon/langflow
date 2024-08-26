@@ -1,10 +1,10 @@
 import { FlowType } from "../../flow";
 
 export type FlowsManagerStoreType = {
+  autoSaving: boolean;
+  setAutoSaving: (autoSaving: boolean) => void;
   getFlowById: (id: string) => FlowType | undefined;
   flows: Array<FlowType> | undefined;
-  allFlows: Array<FlowType>;
-  setAllFlows: (flows: FlowType[]) => void;
   setFlows: (flows: FlowType[]) => void;
   currentFlow: FlowType | undefined;
   currentFlowId: string;
@@ -12,7 +12,6 @@ export type FlowsManagerStoreType = {
   setSaveLoading: (saveLoading: boolean) => void;
   isLoading: boolean;
   setIsLoading: (isLoading: boolean) => void;
-  refreshFlows: () => Promise<void>;
   undo: () => void;
   redo: () => void;
   takeSnapshot: () => void;
@@ -23,6 +22,8 @@ export type FlowsManagerStoreType = {
   searchFlowsComponents: string;
   selectedFlowsComponentsCards: string[];
   setSelectedFlowsComponentsCards: (selected: string[]) => void;
+  autoSavingInterval: number;
+  setAutoSavingInterval: (autoSavingInterval: number) => void;
 };
 
 export type UseUndoRedoOptions = {

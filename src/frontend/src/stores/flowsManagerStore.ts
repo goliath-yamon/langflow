@@ -1,19 +1,12 @@
+import { SAVE_DEBOUNCE_TIME } from "@/constants/constants";
 import { cloneDeep } from "lodash";
 import { create } from "zustand";
-import { readFlowsFromDatabase } from "../controllers/API";
 import { FlowType } from "../types/flow";
 import {
   FlowsManagerStoreType,
   UseUndoRedoOptions,
 } from "../types/zustand/flowsManager";
-import {
-  extractFieldsFromComponenents,
-  processFlows,
-} from "../utils/reactflowUtils";
-import useAlertStore from "./alertStore";
 import useFlowStore from "./flowStore";
-import { useFolderStore } from "./foldersStore";
-import { useTypesStore } from "./typesStore";
 
 const defaultOptions: UseUndoRedoOptions = {
   maxHistorySize: 100,
@@ -24,6 +17,11 @@ const past = {};
 const future = {};
 
 const useFlowsManagerStore = create<FlowsManagerStoreType>((set, get) => ({
+  autoSaving: true,
+  setAutoSaving: (autoSaving: boolean) => set({ autoSaving }),
+  autoSavingInterval: SAVE_DEBOUNCE_TIME,
+  setAutoSavingInterval: (autoSavingInterval: number) =>
+    set({ autoSavingInterval }),
   examples: [],
   setExamples: (examples: FlowType[]) => {
     set({ examples });
@@ -40,10 +38,6 @@ const useFlowsManagerStore = create<FlowsManagerStoreType>((set, get) => ({
     return get().flows?.find((flow) => flow.id === id);
   },
   flows: undefined,
-  allFlows: [],
-  setAllFlows: (allFlows: FlowType[]) => {
-    set({ allFlows });
-  },
   setFlows: (flows: FlowType[]) => {
     set({
       flows,
@@ -55,46 +49,6 @@ const useFlowsManagerStore = create<FlowsManagerStoreType>((set, get) => ({
   setSaveLoading: (saveLoading: boolean) => set({ saveLoading }),
   isLoading: false,
   setIsLoading: (isLoading: boolean) => set({ isLoading }),
-  refreshFlows: () => {
-    return new Promise<void>((resolve, reject) => {
-      set({ isLoading: true });
-
-      const starterFolderId = useFolderStore.getState().starterProjectId;
-
-      readFlowsFromDatabase()
-        .then((dbData) => {
-          if (dbData) {
-            const { data, flows } = processFlows(dbData);
-            const examples = flows.filter(
-              (flow) => flow.folder_id === starterFolderId,
-            );
-            get().setExamples(examples);
-
-            const flowsWithoutStarterFolder = flows.filter(
-              (flow) => flow.folder_id !== starterFolderId,
-            );
-
-            get().setFlows(flowsWithoutStarterFolder);
-            useTypesStore.setState((state) => ({
-              data: { ...state.data, ["saved_components"]: data },
-              ComponentFields: extractFieldsFromComponenents({
-                ...state.data,
-                ["saved_components"]: data,
-              }),
-            }));
-            set({ isLoading: false });
-            resolve();
-          }
-        })
-        .catch((e) => {
-          set({ isLoading: false });
-          useAlertStore.getState().setErrorData({
-            title: "Could not load flows from database",
-          });
-          reject(e);
-        });
-    });
-  },
   takeSnapshot: () => {
     const currentFlowId = get().currentFlowId;
     // push the current graph to the past state

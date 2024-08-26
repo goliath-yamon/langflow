@@ -20,13 +20,13 @@ from rich.panel import Panel
 from rich.table import Table
 from sqlmodel import select
 
+from langflow.logging.logger import configure, logger
 from langflow.main import setup_app
 from langflow.services.database.models.folder.utils import create_default_folder_if_it_doesnt_exist
 from langflow.services.database.utils import session_getter
 from langflow.services.deps import get_db_service, get_settings_service, session_scope
 from langflow.services.settings.constants import DEFAULT_SUPERUSER
 from langflow.services.utils import initialize_services
-from langflow.logging.logger import configure, logger
 from langflow.utils.util import update_settings
 
 console = Console()
@@ -120,6 +120,16 @@ def run(
         help="Enables the store features.",
         envvar="LANGFLOW_STORE",
     ),
+    auto_saving: bool = typer.Option(
+        True,
+        help="Defines if the auto save is enabled.",
+        envvar="LANGFLOW_AUTO_SAVING",
+    ),
+    auto_saving_interval: bool = typer.Option(
+        True,
+        help="Defines the debounce time for the auto save.",
+        envvar="LANGFLOW_AUTO_SAVING_INTERVAL",
+    ),
 ):
     """
     Run Langflow.
@@ -137,6 +147,8 @@ def run(
         cache=cache,
         components_path=components_path,
         store=store,
+        auto_saving=auto_saving,
+        auto_saving_interval=auto_saving_interval,
     )
     # create path object if path is provided
     static_files_dir: Optional[Path] = Path(path) if path else None
@@ -306,12 +318,19 @@ def is_prerelease(version: str) -> bool:
 
 
 def fetch_latest_version(package_name: str, include_prerelease: bool) -> Optional[str]:
-    response = httpx.get(f"https://pypi.org/pypi/{package_name}/json")
-    versions = response.json()["releases"].keys()
-    valid_versions = [v for v in versions if include_prerelease or not is_prerelease(v)]
-    if not valid_versions:
-        return None  # Handle case where no valid versions are found
-    return max(valid_versions, key=lambda v: pkg_version.parse(v))
+    valid_versions = []
+    try:
+        response = httpx.get(f"https://pypi.org/pypi/{package_name}/json")
+        versions = response.json()["releases"].keys()
+        valid_versions = [v for v in versions if include_prerelease or not is_prerelease(v)]
+
+    except Exception as e:
+        logger.exception(e)
+
+    finally:
+        if not valid_versions:
+            return None  # Handle case where no valid versions are found
+        return max(valid_versions, key=lambda v: pkg_version.parse(v))
 
 
 def build_version_notice(current_version: str, package_name: str) -> str:

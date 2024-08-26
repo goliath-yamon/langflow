@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Re
 from loguru import logger
 from sqlmodel import Session, select
 
+from langflow.api.utils import parse_value
 from langflow.api.v1.schemas import (
     ConfigResponse,
     CustomComponentRequest,
@@ -591,9 +592,14 @@ async def custom_component_update(
         )
         if hasattr(cc_instance, "set_attributes"):
             template = code_request.get_template()
-            params = {
-                key: value_dict.get("value") for key, value_dict in template.items() if isinstance(value_dict, dict)
-            }
+            params = {}
+
+            for key, value_dict in template.items():
+                if isinstance(value_dict, dict):
+                    value = value_dict.get("value")
+                    input_type = str(value_dict.get("_input_type"))
+                    params[key] = parse_value(value, input_type)
+
             load_from_db_fields = [
                 field_name
                 for field_name, field_dict in template.items()
